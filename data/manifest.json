@@ -1,0 +1,17 @@
+{
+  "last_updated_human": "Thu Jan 22 09:50:40 2026",
+  "active_leagues": [
+    {
+      "name_zh": "超級聯盟",
+      "name_en": "超級聯盟",
+      "pvpoke_id": "超級聯盟",
+      "cp": 1500
+    },
+    {
+      "name_zh": "究極紀念賽",
+      "name_en": "究極紀念賽",
+      "pvpoke_id": "究極紀念賽",
+      "cp": 1500
+    }
+  ]
+}
