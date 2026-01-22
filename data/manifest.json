@@ -1,19 +1,4 @@
 {
-  "last_updated_human": "Thu Jan 22 09:54:21 2026",
-  "active_leagues": [
-    {
-      "name_zh": "超級聯盟",
-      "name_en": "Great League",
-      "pvpoke_id": "all",
-      "cp": 1500,
-      "file_name": "rankings_1500.json"
-    },
-    {
-      "name_zh": "究極紀念賽",
-      "name_en": "Ultra Premier",
-      "pvpoke_id": "premier",
-      "cp": 2500,
-      "file_name": "rankings_premier_2500.json"
-    }
-  ]
+  "last_updated_human": "Thu Jan 22 10:24:25 2026",
+  "active_leagues": []
 }
