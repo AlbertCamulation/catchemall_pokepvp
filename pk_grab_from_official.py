@@ -23,48 +23,48 @@ def get_soup(url, lang="en"):
         return None
 
 # ==========================================
-# 2. 核心：智慧型連結檢查 (Smart Probe)
+# 2. 核心：智慧型連結檢查 (失敗會回傳預設值)
 # ==========================================
-def find_valid_pvpoke_url(pvpoke_id, cp):
+def get_best_url(pvpoke_id, cp):
     """
-    暴力測試：找出該聯盟真正存在的 JSON 檔案網址
+    嘗試找出正確網址，如果找不到，回傳一個最有可能的「預測網址」
     """
     base_repo = "https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/rankings"
     
     # 預測可能的路徑組合
-    # 組合 A: 標準路徑 (例如: rankings/retro/overall/rankings_1500.json)
-    # 組合 B: 帶 ID 的檔名 (例如: rankings/premier/overall/rankings_premier_2500.json)
-    
     candidates = []
     
-    # 針對 "Ultra Premier" 這種特殊情況，它可能在 premier 資料夾，也可能在 ultra_premier
+    # 對於 Ultra Premier (2500)，可能存在的資料夾與檔名組合
     ids_to_try = [pvpoke_id]
     if pvpoke_id == "ultra_premier": ids_to_try.append("premier")
     if pvpoke_id == "premier": ids_to_try.append("ultra_premier")
 
     for pid in ids_to_try:
-        # 檔名格式 1: rankings_{cp}.json
+        # 組合 1: 標準格式 (例: rankings_2500.json) <- 最常見
         candidates.append(f"{base_repo}/{pid}/overall/rankings_{cp}.json")
-        # 檔名格式 2: rankings_{id}_{cp}.json
+        # 組合 2: 帶 ID 格式 (例: rankings_premier_2500.json)
         candidates.append(f"{base_repo}/{pid}/overall/rankings_{pid}_{cp}.json")
 
     print(f"🔎 正在偵測 {pvpoke_id} (CP {cp})...")
 
+    # 1. 優先嘗試發送 HEAD 請求確認存在
     for url in candidates:
         try:
-            # 使用 HEAD 請求 (只抓檔頭，不抓內容，速度極快且省流量)
             res = requests.head(url, headers=HEADERS, timeout=3)
             if res.status_code == 200:
-                print(f"   ✅ 找到有效檔案: {url}")
+                print(f"   ✅ 找到檔案: {url}")
                 return url
         except:
             pass
     
-    print(f"   ❌ 找不到任何有效檔案 (可能 PvPoke 尚未更新)")
-    return None
+    # 2. 如果都失敗，回傳「最有可能」的預設值 (通常是第一個組合)
+    # 這樣至少清單不會是空的，Worker 點下去雖然可能 404，但至少有按鈕
+    default_url = candidates[0]
+    print(f"   ⚠️ 找不到檔案，將使用預測路徑: {default_url}")
+    return default_url
 
 # ==========================================
-# 3. 爬蟲邏輯 (解析官網)
+# 3. 爬蟲邏輯
 # ==========================================
 def get_leagues_from_article(url, lang="en"):
     soup = get_soup(url, lang)
@@ -99,7 +99,7 @@ def map_to_pvpoke_id_and_cp(en_name):
     
     # 特殊處理: Ultra Premier
     if "premier" in clean_name:
-        if "ultra" in name: return "premier", 2500 # 通常 Ultra Premier 放在 premier 資料夾
+        if "ultra" in name: return "premier", 2500 
         if "master" in name: return "premier", 10000
         return "premier", cp
 
@@ -150,6 +150,9 @@ def run_automation():
         "active_leagues": []
     }
     
+    # 用來避免重複加入 (例如有些賽事名稱重複)
+    seen_keys = set()
+
     for i in range(len(zh_data)):
         if i >= len(en_data): break
         
@@ -157,25 +160,28 @@ def run_automation():
             for zh, en in zip(zh_data[i]['leagues'], en_data[i]['leagues']):
                 pvp_id, cp = map_to_pvpoke_id_and_cp(en)
                 
-                # ★★★ 關鍵：在這裡進行網址偵測 ★★★
-                valid_url = find_valid_pvpoke_url(pvp_id, cp)
+                # 產生唯一 key，避免重複
+                unique_key = f"{pvp_id}_{cp}"
+                if unique_key in seen_keys: continue
+                seen_keys.add(unique_key)
+
+                # ★★★ 寬容模式：不管找不找得到檔案，都要加入清單 ★★★
+                # 如果找不到，get_best_url 會回傳一個預測路徑
+                final_url = get_best_url(pvp_id, cp)
                 
-                if valid_url:
-                    manifest["active_leagues"].append({
-                        "name_zh": zh,
-                        "name_en": en,
-                        "pvpoke_id": pvp_id,
-                        "cp": cp,
-                        "json_url": valid_url # 直接把測試成功的網址存進去
-                    })
-                else:
-                    print(f"⚠️ 跳過 {zh}: PvPoke 上找不到對應檔案")
+                manifest["active_leagues"].append({
+                    "name_zh": zh,
+                    "name_en": en,
+                    "pvpoke_id": pvp_id,
+                    "cp": cp,
+                    "json_url": final_url 
+                })
 
     os.makedirs('data', exist_ok=True)
     with open('data/manifest.json', 'w', encoding='utf-8') as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
     
-    print(f"🎉 成功產出 {len(manifest['active_leagues'])} 筆有效資料！")
+    print(f"🎉 成功產出 {len(manifest['active_leagues'])} 筆資料 (含預測路徑)！")
 
 if __name__ == "__main__":
     run_automation()
