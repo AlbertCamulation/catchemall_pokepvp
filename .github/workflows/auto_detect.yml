@@ -40,10 +40,12 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 檢查是否有檔案變動，避免沒有更新時報錯
           if [ -n "$(git status --porcelain data/manifest.json)" ]; then
             git add data/manifest.json
-            git commit -m "🤖 自動更新實時聯盟索引: $(date +'%Y-%m-%d %H:%M')"
+            
+            # 👇 修改這一行：加上 TZ='Asia/Taipei'
+            git commit -m "🤖 自動更新實時聯盟索引: $(TZ='Asia/Taipei' date +'%Y-%m-%d %H:%M')"
+            
             git push
             echo "✅ 資料已更新並推送到 Repo"
           else
